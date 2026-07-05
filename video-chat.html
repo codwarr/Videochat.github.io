@@ -2,7 +2,7 @@
 <html lang="fa">
 <head>
 <meta charset="UTF-8">
-<title>تماس تصویری | ساخته شده توسط WC_HAMZEH</title>
+<title>WC_HAMZEH | تماس تصویری</title>
 <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 
 <style>
@@ -16,28 +16,29 @@ body {
 
 .header {
   background: linear-gradient(90deg, #ff7b00, #000);
-  padding: 20px;
-  font-size: 26px;
+  padding: 25px;
+  font-size: 30px;
   font-weight: bold;
-  box-shadow: 0 0 20px #ff7b00;
-  border-bottom: 2px solid #ff7b00;
+  box-shadow: 0 0 25px #ff7b00;
+  border-bottom: 3px solid #ff7b00;
 }
 
 .box {
   background: #1a1a1a;
-  padding: 20px;
+  padding: 25px;
   margin: 20px auto;
   width: 90%;
-  border-radius: 10px;
-  box-shadow: 0 0 15px #ff7b00;
+  border-radius: 15px;
+  box-shadow: 0 0 20px #ff7b00;
 }
 
 .avatar-preview {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
   margin-top: 10px;
   object-fit: cover;
+  box-shadow: 0 0 15px #ff7b00;
 }
 
 .video-area {
@@ -49,9 +50,9 @@ body {
 
 .video-card {
   background: #1a1a1a;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 0 0 15px #ff7b00;
+  padding: 15px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px #ff7b00;
   margin: 10px;
   transition: all 0.4s ease;
 }
@@ -59,32 +60,38 @@ body {
 video {
   width: 380px;
   height: 260px;
-  border-radius: 10px;
+  border-radius: 15px;
   background: black;
   transition: all 0.4s ease;
 }
 
 .video-big video {
-  width: 430px;
-  height: 300px;
+  width: 460px;
+  height: 320px;
 }
 
 .avatar-small {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   object-fit: cover;
+  box-shadow: 0 0 10px #ff7b00;
 }
 
 .controls button {
   background: #ff7b00;
   border: none;
-  padding: 15px 30px;
+  padding: 20px 40px;
   margin: 10px;
-  border-radius: 12px;
-  font-size: 22px;
+  border-radius: 15px;
+  font-size: 26px;
   cursor: pointer;
-  box-shadow: 0 0 10px #ff7b00;
+  box-shadow: 0 0 20px #ff7b00;
+  transition: 0.3s;
+}
+
+.controls button:hover {
+  transform: scale(1.1);
 }
 </style>
 </head>
@@ -96,7 +103,7 @@ video {
 </header>
 
 <div class="box">
-  <h2>پروفایل شما</h2>
+  <h2>پروفایل شما (اجباری)</h2>
   <input type="text" id="username" placeholder="نام شما">
   <br><br>
   <input type="file" id="avatar" accept="image/*">
@@ -106,12 +113,14 @@ video {
 
 <div class="box">
   <p>شناسه شما:</p>
-  <div id="myId" style="font-size:22px; color:#ff7b00;"></div>
+  <div id="myId" style="font-size:28px; color:#ff7b00;"></div>
   <button onclick="copyId()">کپی شناسه</button>
 
   <br><br>
   <input type="text" id="otherId" placeholder="شناسه طرف مقابل">
   <button onclick="callUser()">تماس</button>
+
+  <p id="error" style="color:red; font-size:20px;"></p>
 </div>
 
 <div class="video-area">
@@ -135,17 +144,33 @@ video {
 </div>
 
 <script>
-let peer = new Peer();
+function makeID() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let id = "";
+  for (let i = 0; i < 5; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+let myCustomID = makeID();
+let peer = new Peer(myCustomID);
 let myStream;
 let currentCall;
+let dataConn;
 
-peer.on('open', id => {
-  document.getElementById("myId").innerText = id;
-});
+document.getElementById("myId").innerText = myCustomID;
 
 navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
   myStream = stream;
   document.getElementById("myVideo").srcObject = stream;
+});
+
+peer.on('connection', conn => {
+  dataConn = conn;
+
+  conn.on('data', data => {
+    document.getElementById("otherNameTag").innerText = data.name;
+    document.getElementById("otherAvatarTag").src = data.avatar;
+  });
 });
 
 peer.on('call', call => {
@@ -159,7 +184,21 @@ peer.on('call', call => {
 });
 
 function callUser() {
+  let name = document.getElementById("username").value;
+  let avatar = document.getElementById("avatarPreview").src;
+
+  if (!name || !avatar) {
+    document.getElementById("error").innerText = "لطفاً نام و عکس پروفایل را وارد کنید.";
+    return;
+  }
+
   let id = document.getElementById("otherId").value;
+
+  dataConn = peer.connect(id);
+  dataConn.on('open', () => {
+    dataConn.send({ name: name, avatar: avatar });
+  });
+
   currentCall = peer.call(id, myStream);
 
   currentCall.on('stream', remoteStream => {
